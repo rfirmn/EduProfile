@@ -1,0 +1,391 @@
+// ============================================================================
+// VAK Learning Style Platform — Database Schema (v2)
+// PostgreSQL | 15 Tables | 7 Enums
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum UserRole {
+  user
+  admin
+}
+
+enum GenderType {
+  male
+  female
+  prefer_not_to_say
+}
+
+enum OccupationType {
+  pelajar
+  mahasiswa
+  guru
+  non_akademisi
+  lainnya
+}
+
+enum VakDimension {
+  V
+  A
+  K
+}
+
+enum SessionStatus {
+  in_progress
+  profile_test_done
+  self_perception_done
+  performance_in_progress
+  completed
+  abandoned
+}
+
+enum PkgSelectionStatus {
+  pending
+  in_progress
+  completed
+  timed_out
+}
+
+enum LearningPaceType {
+  fast_accurate
+  fast_inaccurate
+  moderate_accurate
+  moderate_inaccurate
+  slow_accurate
+  slow_inaccurate
+}
+
+// ============================================================================
+// Grup A — Auth & User
+// ============================================================================
+
+/// Data autentikasi murni. Dipisah dari profil agar auth layer tetap bersih.
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  role            UserRole  @default(user)
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  refreshToken    String?   @map("refresh_token") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  profile      Profile?
+  testSessions TestSession[]
+  testResults  TestResult[]
+
+  @@map("users")
+}
+
+/// Data personal user. One-to-one dengan User. Diisi saat onboarding.
+/// Snapshot kolom (current_learning_style, current_learning_pace, last_test_at)
+/// diupdate otomatis setiap kali test selesai untuk O(1) dashboard query.
+model Profile {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @unique @map("user_id") @db.Uuid
+  fullName  String  @map("full_name") @db.VarChar(255)
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
+  gender    GenderType?
+  occupation OccupationType
+  educationLevel String? @map("education_level") @db.VarChar(100)
+  avatarUrl String? @map("avatar_url") @db.Text
+
+  // Snapshot hasil test terbaru (denormalisasi untuk performa dashboard)
+  currentLearningStyle String?           @map("current_learning_style") @db.VarChar(20)
+  currentLearningPace  LearningPaceType? @map("current_learning_pace")
+  lastTestAt           DateTime?         @map("last_test_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("profiles")
+}
+
+// ============================================================================
+// Grup B — Konten / Bank Soal
+// ============================================================================
+
+/// Pertanyaan Profile Test — MCQ statis (8 kategori × 2 soal = 16 soal).
+/// Kategori: Edutech, DeviceUsage, Resources, Discussion,
+///           CourseParticipation, EmotionEngagement, PhysicalActivity, Extracurricular
+model ProfileTestQuestion {
+  id           String  @id @default(uuid()) @db.Uuid
+  category     String  @db.VarChar(50)
+  questionText String  @map("question_text") @db.Text
+  orderIndex   Int     @map("order_index")
+  isActive     Boolean @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  options ProfileTestOption[]
+  answers ProfileTestAnswer[]
+
+  @@index([category, isActive])
+  @@map("profile_test_questions")
+}
+
+/// Opsi jawaban Profile Test MCQ.
+model ProfileTestOption {
+  id          String  @id @default(uuid()) @db.Uuid
+  questionId  String  @map("question_id") @db.Uuid
+  optionLabel String  @map("option_label") @db.VarChar(5)
+  optionText  String  @map("option_text") @db.Text
+  scoreValue  Int     @default(0) @map("score_value")
+  orderIndex  Int     @map("order_index")
+
+  question ProfileTestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  ProfileTestAnswer[]
+
+  @@map("profile_test_options")
+}
+
+/// Pertanyaan esai statis — sekarang hanya 1 pertanyaan.
+model SelfPerceptionQuestion {
+  id           String  @id @default(uuid()) @db.Uuid
+  questionText String  @map("question_text") @db.Text
+  orderIndex   Int     @map("order_index")
+  isActive     Boolean @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  answers SelfPerceptionAnswer[]
+
+  @@map("self_perception_questions")
+}
+
+/// Paket materi per dimensi VAK. Min 1 paket per dimensi.
+model PerformancePackage {
+  id           String       @id @default(uuid()) @db.Uuid
+  vakDimension VakDimension @map("vak_dimension")
+  title        String       @db.VarChar(255)
+  slug         String       @unique @db.VarChar(255)
+  description  String?      @db.Text
+  genre        String       @db.VarChar(100)
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  materials          PackageMaterial[]
+  questions          PackageQuestion[]
+  packageSelections  SessionPackageSelection[]
+
+  @@index([vakDimension, isActive])
+  @@map("performance_packages")
+}
+
+/// Materi bacaan per paket.
+model PackageMaterial {
+  id         String   @id @default(uuid()) @db.Uuid
+  packageId  String   @map("package_id") @db.Uuid
+  title      String   @db.VarChar(255)
+  content    String   @db.Text
+  orderIndex Int      @default(1) @map("order_index")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  package PerformancePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@map("package_materials")
+}
+
+/// Soal MCQ per paket (text-based, 3 soal per dimensi).
+model PackageQuestion {
+  id           String  @id @default(uuid()) @db.Uuid
+  packageId    String  @map("package_id") @db.Uuid
+  questionText String  @map("question_text") @db.Text
+  orderIndex   Int     @map("order_index")
+  isActive     Boolean @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  package PerformancePackage   @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  options PackageQuestionOption[]
+  answers PerformanceAnswer[]
+
+  @@map("package_questions")
+}
+
+/// Opsi jawaban MCQ + score_value (tidak pernah dikembalikan ke frontend).
+model PackageQuestionOption {
+  id          String  @id @default(uuid()) @db.Uuid
+  questionId  String  @map("question_id") @db.Uuid
+  optionLabel String  @map("option_label") @db.VarChar(5)
+  optionText  String  @map("option_text") @db.Text
+  scoreValue  Decimal @default(0.00) @map("score_value") @db.Decimal(4, 2)
+  orderIndex  Int     @map("order_index")
+
+  question PackageQuestion     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  PerformanceAnswer[]
+
+  @@map("package_question_options")
+}
+
+// ============================================================================
+// Grup C — Sesi & Jawaban
+// ============================================================================
+
+/// Sesi test utama. Bisa milik user (login) atau guest (token).
+model TestSession {
+  id                          String        @id @default(uuid()) @db.Uuid
+  userId                      String?       @map("user_id") @db.Uuid
+  guestToken                  String?       @unique @map("guest_token") @db.VarChar(255)
+  status                      SessionStatus @default(in_progress)
+  isGuestConverted            Boolean       @default(false) @map("is_guest_converted")
+  startedAt                   DateTime      @default(now()) @map("started_at")
+  profileTestSubmittedAt      DateTime?     @map("profile_test_submitted_at")
+  selfPerceptionSubmittedAt   DateTime?     @map("self_perception_submitted_at")
+  completedAt                 DateTime?     @map("completed_at")
+  createdAt                   DateTime      @default(now()) @map("created_at")
+
+  user                 User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  packageSelections    SessionPackageSelection[]
+  profileTestAnswers   ProfileTestAnswer[]
+  selfPerceptionAnswers SelfPerceptionAnswer[]
+  performanceAnswers   PerformanceAnswer[]
+  testResult           TestResult?
+
+  @@index([userId])
+  @@map("test_sessions")
+}
+
+/// 3 paket terpilih per sesi (V, A, K). Timer dikelola per selection.
+model SessionPackageSelection {
+  id                String             @id @default(uuid()) @db.Uuid
+  sessionId         String             @map("session_id") @db.Uuid
+  vakDimension      VakDimension       @map("vak_dimension")
+  packageId         String             @map("package_id") @db.Uuid
+  status            PkgSelectionStatus @default(pending)
+  timeLimitSeconds  Int                @default(300) @map("time_limit_seconds")
+  startedAt         DateTime?          @map("started_at")
+  completedAt       DateTime?          @map("completed_at")
+  timeElapsedSeconds Int?              @map("time_elapsed_seconds")
+
+  session  TestSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  package  PerformancePackage @relation(fields: [packageId], references: [id])
+  answers  PerformanceAnswer[]
+
+  @@unique([sessionId, vakDimension])
+  @@index([sessionId])
+  @@map("session_package_selections")
+}
+
+/// Jawaban Profile Test per sesi.
+model ProfileTestAnswer {
+  id               String   @id @default(uuid()) @db.Uuid
+  sessionId        String   @map("session_id") @db.Uuid
+  questionId       String   @map("question_id") @db.Uuid
+  selectedOptionId String   @map("selected_option_id") @db.Uuid
+  answeredAt       DateTime @default(now()) @map("answered_at")
+
+  session        TestSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question       ProfileTestQuestion @relation(fields: [questionId], references: [id])
+  selectedOption ProfileTestOption   @relation(fields: [selectedOptionId], references: [id])
+
+  @@unique([sessionId, questionId])
+  @@index([sessionId])
+  @@map("profile_test_answers")
+}
+
+/// Jawaban esai self-perception.
+model SelfPerceptionAnswer {
+  id         String   @id @default(uuid()) @db.Uuid
+  sessionId  String   @map("session_id") @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  essayText  String   @map("essay_text") @db.Text
+  answeredAt DateTime @default(now()) @map("answered_at")
+
+  session  TestSession            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question SelfPerceptionQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([sessionId, questionId])
+  @@index([sessionId])
+  @@map("self_perception_answers")
+}
+
+/// Jawaban MCQ performance. time_spent_ms wajib untuk pace calculation.
+model PerformanceAnswer {
+  id                 String   @id @default(uuid()) @db.Uuid
+  sessionId          String   @map("session_id") @db.Uuid
+  packageSelectionId String   @map("package_selection_id") @db.Uuid
+  questionId         String   @map("question_id") @db.Uuid
+  selectedOptionId   String?  @map("selected_option_id") @db.Uuid
+  timeSpentMs        Int      @map("time_spent_ms")
+  answeredAt         DateTime @default(now()) @map("answered_at")
+
+  session          TestSession             @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  packageSelection SessionPackageSelection @relation(fields: [packageSelectionId], references: [id], onDelete: Cascade)
+  question         PackageQuestion         @relation(fields: [questionId], references: [id])
+  selectedOption   PackageQuestionOption?   @relation(fields: [selectedOptionId], references: [id])
+
+  @@unique([sessionId, questionId])
+  @@index([sessionId])
+  @@index([packageSelectionId])
+  @@map("performance_answers")
+}
+
+// ============================================================================
+// Grup D — Hasil
+// ============================================================================
+
+/// Hasil akhir test: skor VAK, learning pace, dan output ML API.
+model TestResult {
+  id        String @id @default(uuid()) @db.Uuid
+  sessionId String @unique @map("session_id") @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+
+  // Skor VAK mentah dari performance test MCQ (tetap disimpan untuk audit)
+  perfVScore Decimal? @map("perf_v_score") @db.Decimal(5, 2)
+  perfAScore Decimal? @map("perf_a_score") @db.Decimal(5, 2)
+  perfKScore Decimal? @map("perf_k_score") @db.Decimal(5, 2)
+
+  // ML API output — probabilities per gaya belajar
+  mlProbabilityV Decimal @map("ml_probability_v") @db.Decimal(5, 2)
+  mlProbabilityA Decimal @map("ml_probability_a") @db.Decimal(5, 2)
+  mlProbabilityK Decimal @map("ml_probability_k") @db.Decimal(5, 2)
+  mlConfidence   Decimal @map("ml_confidence") @db.Decimal(5, 2)
+
+  // Skor VAK final (untuk sekarang = ML probabilities, nanti bisa di-combine dengan perf)
+  finalVScore Decimal @map("final_v_score") @db.Decimal(5, 2)
+  finalAScore Decimal @map("final_a_score") @db.Decimal(5, 2)
+  finalKScore Decimal @map("final_k_score") @db.Decimal(5, 2)
+
+  // Hasil gaya belajar (dari ML API predicted_style)
+  dominantStyle String @map("dominant_style") @db.VarChar(20)
+
+  // Learning Pace (dari performance answers)
+  learningPace      LearningPaceType @map("learning_pace")
+  paceAvgTimeMs     Int              @map("pace_avg_time_ms")
+  paceAccuracyPct   Decimal          @map("pace_accuracy_pct") @db.Decimal(5, 2)
+  paceSpeedLabel    String           @map("pace_speed_label") @db.VarChar(10)
+  paceAccuracyLabel String           @map("pace_accuracy_label") @db.VarChar(10)
+
+  // Input features yang dikirim ke ML API (untuk audit/reproduksi)
+  habitFeatures Json @map("habit_features")
+
+  // Output AI/LLM — analysis text & roadmap
+  aiAnalysisText String @map("ai_analysis_text") @db.Text
+  roadmapText    String @map("roadmap_text") @db.Text
+
+  // Audit & versioning
+  aiModelVersion String @map("ai_model_version") @db.VarChar(50)
+  rawAiPayload   Json   @map("raw_ai_payload")
+
+  generatedAt DateTime @default(now()) @map("generated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  session TestSession @relation(fields: [sessionId], references: [id])
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("test_results")
+}

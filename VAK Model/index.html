@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduProfile AI - VAK Analyzer</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 25, 40, 0.65);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-primary: hsl(210, 100%, 60%);
+            --accent-secondary: hsl(280, 100%, 65%);
+            --accent-tertiary: hsl(150, 100%, 45%);
+            --glow-blue: rgba(59, 130, 246, 0.15);
+            --glow-purple: rgba(168, 85, 247, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+            padding: 2rem 1rem;
+        }
+
+        /* Background Glows */
+        body::before, body::after {
+            content: "";
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        body::before {
+            background: var(--accent-primary);
+            top: 10%;
+            left: 5%;
+        }
+
+        body::after {
+            background: var(--accent-secondary);
+            bottom: 10%;
+            right: 5%;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffffff 30%, var(--accent-primary) 65%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.03em;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            padding: 2.5rem;
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 2.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        @media (max-width: 850px) {
+            .glass-panel {
+                grid-template-columns: 1fr;
+                padding: 1.5rem;
+            }
+        }
+
+        .form-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.8rem;
+        }
+
+        .section-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(90deg, #fff, var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sliders-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.2rem;
+        }
+
+        @media (max-width: 480px) {
+            .sliders-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .input-header label {
+            text-transform: capitalize;
+        }
+
+        .numeric-input {
+            width: 55px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: #fff;
+            text-align: center;
+            padding: 2px 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .numeric-input:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .slider-wrapper {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            box-shadow: 0 0 10px var(--accent-primary);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .textarea-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 110px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        textarea:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 12px var(--glow-blue);
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.8rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        /* Results / Output styling */
+        .results-section {
+            border-left: 1px solid var(--border-color);
+            padding-left: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 350px;
+        }
+
+        @media (max-width: 850px) {
+            .results-section {
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+                padding-left: 0;
+                padding-top: 2.5rem;
+            }
+        }
+
+        .placeholder-results {
+            text-align: center;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            height: 100%;
+        }
+
+        .placeholder-icon {
+            font-size: 3rem;
+            opacity: 0.4;
+            animation: pulse 2s infinite alternate;
+        }
+
+        .results-content {
+            display: none;
+            flex-direction: column;
+            gap: 2rem;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .badge-style {
+            align-self: center;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            padding: 0.8rem 2rem;
+            border-radius: 50px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .badge-style.visual {
+            color: var(--accent-primary);
+            border-color: rgba(59, 130, 246, 0.4);
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.2);
+        }
+
+        .badge-style.auditory {
+            color: var(--accent-secondary);
+            border-color: rgba(168, 85, 247, 0.4);
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.2);
+        }
+
+        .badge-style.kinesthetic {
+            color: var(--accent-tertiary);
+            border-color: rgba(16, 185, 129, 0.4);
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+        }
+
+        .result-meta {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .result-meta span {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .chart-bar-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .chart-bar-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .chart-bar-bg {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .chart-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 6px;
+            transition: width 1s cubic-bezier(0.1, 0.76, 0.55, 0.94);
+        }
+
+        .chart-bar-fill.visual {
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+
+        .chart-bar-fill.auditory {
+            background: linear-gradient(90deg, #a855f7, #c084fc);
+        }
+
+        .chart-bar-fill.kinesthetic {
+            background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        /* Spinner */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 0.3; }
+            to { transform: scale(1.05); opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>EduProfile AI</h1>
+            <p>Predict & Analyze Your VAK Learning Style</p>
+        </header>
+
+        <div class="glass-panel">
+            <!-- Input Form Section -->
+            <div class="form-section">
+                <div>
+                    <h2 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Habit Indicators
+                    </h2>
+                </div>
+
+                <div class="sliders-grid">
+                    <!-- Slider 1 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_edutech">EduTech</label>
+                            <input type="number" id="num_edutech" class="numeric-input" min="0" max="10" step="0.1" value="8">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_edutech" min="0" max="10" step="0.1" value="8">
+                        </div>
+                    </div>
+
+                    <!-- Slider 2 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_deviceusage">Device Usage</label>
+                            <input type="number" id="num_deviceusage" class="numeric-input" min="0" max="10" step="0.1" value="7">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_deviceusage" min="0" max="10" step="0.1" value="7">
+                        </div>
+                    </div>
+
+                    <!-- Slider 3 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_resources">Resources</label>
+                            <input type="number" id="num_resources" class="numeric-input" min="0" max="10" step="0.1" value="9">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_resources" min="0" max="10" step="0.1" value="9">
+                        </div>
+                    </div>
+
+                    <!-- Slider 4 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_discussion">Discussions</label>
+                            <input type="number" id="num_discussion" class="numeric-input" min="0" max="10" step="0.1" value="4">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_discussion" min="0" max="10" step="0.1" value="4">
+                        </div>
+                    </div>
+
+                    <!-- Slider 5 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_participation">Participation</label>
+                            <input type="number" id="num_participation" class="numeric-input" min="0" max="10" step="0.1" value="5">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_participation" min="0" max="10" step="0.1" value="5">
+                        </div>
+                    </div>
+
+                    <!-- Slider 6 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_emotion">Emotion</label>
+                            <input type="number" id="num_emotion" class="numeric-input" min="0" max="10" step="0.1" value="6">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_emotion" min="0" max="10" step="0.1" value="6">
+                        </div>
+                    </div>
+
+                    <!-- Slider 7 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_physical">Physical Activity</label>
+                            <input type="number" id="num_physical" class="numeric-input" min="0" max="10" step="0.1" value="3">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_physical" min="0" max="10" step="0.1" value="3">
+                        </div>
+                    </div>
+
+                    <!-- Slider 8 -->
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label for="slide_extracurricular">Extracurricular</label>
+                            <input type="number" id="num_extracurricular" class="numeric-input" min="0" max="10" step="0.1" value="2">
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" id="slide_extracurricular" min="0" max="10" step="0.1" value="2">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="textarea-group">
+                    <h2 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        Reflection Text
+                    </h2>
+                    <textarea id="text_reflection" placeholder="Ceritakan bagaimana situasi atau momen belajar yang paling nyaman menurut dirimu. (Contoh: Apakah kamu harus melihat gambar, mendengarkan penjelasan langsung, atau mencoba mempraktikkannya sendiri?)...">I prefer reading illustrated textbooks, watching video explanations, and studying diagrams.</textarea>
+                </div>
+
+                <button id="btn_predict" class="btn-submit">
+                    <span>Analyze Learning Style</span>
+                    <div id="btn_spinner" class="spinner"></div>
+                </button>
+            </div>
+
+            <!-- Results Output Section -->
+            <div class="results-section">
+                <!-- Placeholder when no result yet -->
+                <div id="results_placeholder" class="placeholder-results">
+                    <div class="placeholder-icon">🧠</div>
+                    <h3>Ready to Analyze</h3>
+                    <p>Enter your learning habits and reflection text, then click "Analyze" to see your predicted style.</p>
+                </div>
+
+                <!-- Actual Results Content -->
+                <div id="results_content" class="results-content">
+                    <h2 class="section-title" style="justify-content: center;">Analysis Result</h2>
+                    
+                    <div id="predicted_badge" class="badge-style visual">
+                        Visual
+                    </div>
+
+                    <div class="result-meta">
+                        Confidence Level: <span id="confidence_val">85.5%</span>
+                    </div>
+
+                    <div class="chart-container">
+                        <!-- Visual Bar -->
+                        <div class="chart-bar-group">
+                            <div class="chart-bar-labels">
+                                <span>Visual</span>
+                                <span id="prob_visual">85.5%</span>
+                            </div>
+                            <div class="chart-bar-bg">
+                                <div id="fill_visual" class="chart-bar-fill visual" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Auditory Bar -->
+                        <div class="chart-bar-group">
+                            <div class="chart-bar-labels">
+                                <span>Auditory</span>
+                                <span id="prob_auditory">10.2%</span>
+                            </div>
+                            <div class="chart-bar-bg">
+                                <div id="fill_auditory" class="chart-bar-fill auditory" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Kinesthetic Bar -->
+                        <div class="chart-bar-group">
+                            <div class="chart-bar-labels">
+                                <span>Kinesthetic</span>
+                                <span id="prob_kinesthetic">4.3%</span>
+                            </div>
+                            <div class="chart-bar-bg">
+                                <div id="fill_kinesthetic" class="chart-bar-fill kinesthetic" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sync Sliders and Numeric Inputs
+        const pairs = [
+            { slide: 'slide_edutech', num: 'num_edutech' },
+            { slide: 'slide_deviceusage', num: 'num_deviceusage' },
+            { slide: 'slide_resources', num: 'num_resources' },
+            { slide: 'slide_discussion', num: 'num_discussion' },
+            { slide: 'slide_participation', num: 'num_participation' },
+            { slide: 'slide_emotion', num: 'num_emotion' },
+            { slide: 'slide_physical', num: 'num_physical' },
+            { slide: 'slide_extracurricular', num: 'num_extracurricular' }
+        ];
+
+        pairs.forEach(pair => {
+            const slideEl = document.getElementById(pair.slide);
+            const numEl = document.getElementById(pair.num);
+
+            slideEl.addEventListener('input', (e) => {
+                numEl.value = e.target.value;
+            });
+
+            numEl.addEventListener('input', (e) => {
+                let val = parseFloat(e.target.value);
+                if (isNaN(val)) val = 0;
+                if (val < 0) val = 0;
+                if (val > 10) val = 10;
+                slideEl.value = val;
+            });
+        });
+
+        // Submit to API Logic
+        const btnPredict = document.getElementById('btn_predict');
+        const btnSpinner = document.getElementById('btn_spinner');
+        const resultsPlaceholder = document.getElementById('results_placeholder');
+        const resultsContent = document.getElementById('results_content');
+
+        btnPredict.addEventListener('click', async () => {
+            const reflection = document.getElementById('text_reflection').value.trim();
+            if (!reflection) {
+                alert("Silakan masukkan kalimat refleksi belajar Anda!");
+                return;
+            }
+
+            // Show loading state
+            btnSpinner.style.display = 'block';
+            btnPredict.disabled = true;
+
+            // Get habit values and apply normalization logic:
+            // "tambahkan logika dimana jika nilai di bawah 1 maka tidak perlu dilakukan pembagian (asumsinya nilai itu sudah di normalisasikan)"
+            const getAndNormalize = (id) => {
+                const val = parseFloat(document.getElementById(id).value);
+                if (isNaN(val)) return 0.0;
+                if (val <= 1.0) {
+                    return val; // Already normalized
+                } else {
+                    return val / 10.0; // Scale from 0-10 down to 0-1
+                }
+            };
+
+            const habitFeatures = [
+                getAndNormalize('num_edutech'),
+                getAndNormalize('num_deviceusage'),
+                getAndNormalize('num_resources'),
+                getAndNormalize('num_discussion'),
+                getAndNormalize('num_participation'),
+                getAndNormalize('num_emotion'),
+                getAndNormalize('num_physical'),
+                getAndNormalize('num_extracurricular')
+            ];
+
+            const requestBody = {
+                text_reflection: reflection,
+                habit_features: habitFeatures
+            };
+
+            try {
+                // Determine API root automatically (e.g. if loaded via file:/// or http://127.0.0.1:8000/)
+                const apiHost = window.location.origin.startsWith('file') ? 'http://127.0.0.1:8000' : window.location.origin;
+                const response = await fetch(`${apiHost}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || 'Terjadi kesalahan saat memanggil model.');
+                }
+
+                const result = await response.json();
+
+                // Display Results
+                resultsPlaceholder.style.display = 'none';
+                resultsContent.style.display = 'flex';
+
+                // Setup badge styles
+                const badge = document.getElementById('predicted_badge');
+                badge.innerText = result.predicted_style;
+                badge.className = 'badge-style ' + result.predicted_style.toLowerCase();
+
+                document.getElementById('confidence_val').innerText = result.confidence + '%';
+                
+                // Update Bars & Labels
+                document.getElementById('prob_visual').innerText = result.probabilities.Visual + '%';
+                document.getElementById('fill_visual').style.width = result.probabilities.Visual + '%';
+
+                document.getElementById('prob_auditory').innerText = result.probabilities.Auditory + '%';
+                document.getElementById('fill_auditory').style.width = result.probabilities.Auditory + '%';
+
+                document.getElementById('prob_kinesthetic').innerText = result.probabilities.Kinesthetic + '%';
+                document.getElementById('fill_kinesthetic').style.width = result.probabilities.Kinesthetic + '%';
+
+            } catch (err) {
+                alert('Gagal melakukan analisis: ' + err.message);
+            } finally {
+                // Hide loading state
+                btnSpinner.style.display = 'none';
+                btnPredict.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
