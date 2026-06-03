@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy dependency files
 COPY package*.json ./
 
-# Install ALL dependencies (dev included, needed for nest build)
-RUN npm install
+# Force install ALL dependencies (Railway sets NODE_ENV=production which skips dev)
+RUN npm install --include=dev
 
 # Copy all source code
 COPY . .
@@ -14,11 +14,14 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build the NestJS app (creates /app/dist)
-RUN npm run build
+# Build the NestJS app
+RUN npx nest build
 
-# Verify dist was created (will fail the build if not)
+# Verify dist was created
 RUN ls dist/main.js
+
+# Now remove dev dependencies to slim down
+RUN npm prune --omit=dev
 
 EXPOSE 3000
 
