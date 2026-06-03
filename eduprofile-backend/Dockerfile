@@ -1,48 +1,25 @@
-# ===================================================
-# EduProfile Backend — Dockerfile for Railway
-# ===================================================
-
-# Stage 1: Build
-FROM node:22-alpine AS builder
-
-WORKDIR /app
-
-# Copy dependency files first (for Docker layer caching)
-COPY package*.json ./
-COPY prisma.config.ts ./
-COPY prisma ./prisma/
-
-# Install ALL dependencies (including devDependencies for building)
-RUN npm install
-
-# Copy the rest of the source code
-COPY . .
-
-# Generate Prisma Client & Build NestJS
-RUN npx prisma generate
-RUN npm run build
-
-# Stage 2: Production
-FROM node:22-alpine AS runner
+FROM node:22-alpine
 
 WORKDIR /app
 
 # Copy dependency files
 COPY package*.json ./
-COPY prisma.config.ts ./
-COPY prisma ./prisma/
 
-# Install production dependencies only
-RUN npm install --omit=dev
+# Install ALL dependencies (dev included, needed for nest build)
+RUN npm install
 
-# Generate Prisma Client in production node_modules
+# Copy all source code
+COPY . .
+
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Copy built output from builder stage
-COPY --from=builder /app/dist ./dist
+# Build the NestJS app (creates /app/dist)
+RUN npm run build
 
-# Expose port
+# Verify dist was created (will fail the build if not)
+RUN ls dist/main.js
+
 EXPOSE 3000
 
-# Start the application
 CMD ["node", "dist/main"]
