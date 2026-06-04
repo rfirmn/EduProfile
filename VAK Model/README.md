@@ -13,6 +13,6 @@ Deploying menggunakan Fast API sebagai framework backend dalam proses deploying 
 1. `py -3.12 -m venv venv`
 2. `venv\Scripts\activate`
 3. `pip install -r requirements.txt`
-4. `python -m uvicorn app_api:app --host [IP_ADDRESS] --port 8000 --reload`
+4. `uvicorn app_api:app --reload --port 8000`
 
 deploying masih bersifat lokal
